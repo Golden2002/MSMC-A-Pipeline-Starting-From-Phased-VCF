@@ -9,14 +9,14 @@
 # =====================================
 
 #SBATCH --job-name=MSMC_ProcessVCF
-#SBATCH --output=/PATH/TO/logs/%x_%A_%a.log
-#SBATCH --error=/PATH/TO/logs/%x_err_%A_%a.log
+#SBATCH --output=/home/litianxing/100My_Jino/116.MSMC/true_msmc/logs/%x_%A_%a.log
+#SBATCH --error=/home/litianxing/100My_Jino/116.MSMC/true_msmc/logs/%x_err_%A_%a.log
 #SBATCH --ntasks=1
 #SBATCH --partition=batch
 #SBATCH --mem=16G
 #SBATCH --cpus-per-task=4
 #SBATCH --nodes=1
-##SBATCH --array=0-100
+## SBATCH --array=0-100
 
 # =====================================
 # Strict mode
@@ -24,15 +24,14 @@ set -euo pipefail
 
 #Total samples: 32 提交方式。根据样本数确定并行任务数
  #N=32
- #sbatch --array=0-$((N-1)) msmc/02b_process_vcf.sh
+ #sbatch --array=0-$((N-1)) /home/litianxing/100My_Jino/116.MSMC/true_msmc/02b_process_vcf.sh
  #Submitted batch job
 
 # =====================================
 # Load configuration
 #SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #source "${SCRIPT_DIR}/config.sh"
-
-CONFIG_FILE="msmc/config.sh"
+CONFIG_FILE="/home/litianxing/100My_Jino/116.MSMC/true_msmc/config.sh"
 
 if [[ ! -f "$CONFIG_FILE" ]]; then
     echo "ERROR: config.sh not found: $CONFIG_FILE"
@@ -42,6 +41,11 @@ fi
 source "$CONFIG_FILE"
 
 log "Configuration loaded"
+
+FORCE=1
+#if [ "$1" == "--force" ]; then
+#    FORCE=1
+#fi
 # =====================================
 # Get array task ID
 if [[ -n "${SLURM_ARRAY_TASK_ID:-}" ]]; then
@@ -61,40 +65,46 @@ process_vcf_to_msmc() {
     local sample_id="$1"
     local pop_name="$2"
     local chr="$3"
-
+    
     # Input: single-sample VCF (all sites, from Step 2)
     local input_vcf="${SINGLE_VCF_DIR}/${pop_name}_${sample_id}_chr${chr}.vcf.gz"
-
+    
     # Output 1: variant-only VCF
     local variant_vcf="${SINGLE_VCF_DIR}/${pop_name}_${sample_id}_chr${chr}.variant.vcf.gz"
-
+    
     # Output 2: per-sample mask
     local sample_mask="${SINGLE_VCF_DIR}/${pop_name}_${sample_id}_chr${chr}.mask.bed.gz"
-
+    
     # Check if already exists
-    if [[ "${RESUME_MODE}" -eq 1 && -f "${variant_vcf}" && -f "${sample_mask}" ]]; then
+    # 只要文件存在就会跳过，即使文件是 0 byte 空文件。把-f换成-s
+    if [[ "${RESUME_MODE}" -eq 1 && -f "${variant_vcf}" && -f "${sample_mask}" && $FORCE -eq 0 ]]; then
         log "Processed VCF for ${sample_id} chr${chr} already exists, skipping..."
         return 0
     fi
 
+    # 如果使用 --force，则删除旧文件
+#    if [[ $FORCE -eq 1 ]]; then
+#    rm -f "${variant_vcf}" "${variant_vcf}.tbi" "${sample_mask}"
+#    fi
+    
     # Check input exists
     if [[ ! -f "$input_vcf" ]]; then
         log "ERROR: Input VCF not found: ${input_vcf}"
         return 1
     fi
-
+    
     # Get vcfAllSiteParser script
     local vcf_parser="${MSMC_TOOLS_DIR}/vcfAllSiteParser.py"
     if [[ ! -f "$vcf_parser" ]]; then
-        # vcf_parser="${SCRIPT_DIR}/guide_from_github/vcfAllSiteParser_AllowMultiallelic.py"
-        vcf_parser="guide_from_github/vcfAllSiteParser_AllowMultiallelic.py"
+#        vcf_parser="${SCRIPT_DIR}/guide_from_github/vcfAllSiteParser_AllowMultiallelic.py"
+        vcf_parser="/home/litianxing/100My_Jino/116.MSMC/true_msmc/guide_from_github/vcfAllSiteParser_AllowMultiallelic.py"
     fi
-
+    
     if [[ ! -f "$vcf_parser" ]]; then
         log "ERROR: vcfAllSiteParser.py not found"
         return 1
     fi
-
+    
     # Process: cat VCF | vcfAllSiteParser.py > variant.vcf
     # 同时生成 mask 文件
 #    ${BCFTOOLS} view -r "${chr}" "${input_vcf}" 2>/dev/null | \
@@ -105,10 +115,10 @@ process_vcf_to_msmc() {
           #使用 -Ou
           #减少 IO
     # 不需要额外对mask文件进行bgzip，因为原脚本解决了这个问题。
-    ${BCFTOOLS} view -Ou "${input_vcf}" | \
-    ${PYTHON2} "${vcf_parser}" "${chr}" "${sample_mask}" | \
+    ${BCFTOOLS} view -Ov "${input_vcf}" | \
+    ${PYTHON2} "${vcf_parser}" "chr${chr}" "${sample_mask}" | \
     ${BCFTOOLS} view -Oz -o "${variant_vcf}"
-
+    
     if [[ $? -eq 0 && -f "${variant_vcf}" && -f "${sample_mask}" ]]; then
         # Index the variant VCF
         ${TABIX} -p -f vcf "${variant_vcf}" 2>/dev/null || true
@@ -128,17 +138,17 @@ process_vcf_simple() {
     local sample_id="$1"
     local pop_name="$2"
     local chr="$3"
-
+    
     local input_vcf="${SINGLE_VCF_DIR}/${pop_name}_${sample_id}_chr${chr}.vcf.gz"
     local variant_vcf="${SINGLE_VCF_DIR}/${pop_name}_${sample_id}_chr${chr}.variant.vcf.gz"
-
+    
     if [[ ! -f "$input_vcf" ]]; then
         return 1
     fi
-
+    
     # 直接提取变异位点 (只保留有ALT等位基因的位点)
     ${BCFTOOLS} view -r "${chr}" -V indels "${input_vcf}" -Oz -o "${variant_vcf}" 2>/dev/null
-
+    
     if [[ $? -eq 0 && -f "${variant_vcf}" ]]; then
         ${TABIX} -p -f vcf "${variant_vcf}" 2>/dev/null || true
         log "Extracted variants for ${sample_id} chr${chr}"
@@ -180,7 +190,7 @@ for ((i=START_IDX; i<START_IDX+BATCH_SIZE && i<${#ALL_SAMPLES[@]}; i++)); do
     sample_pop="${ALL_SAMPLES[$i]}"
     sample_id="${sample_pop%%:*}"
     pop_name="${sample_pop##*:}"
-
+    
     log "Processing sample: ${sample_id} (${pop_name})"
 
     for chr in ${CHROMOSOMES}; do
