@@ -16,17 +16,32 @@
 #SBATCH --mem=16G
 #SBATCH --cpus-per-task=4
 #SBATCH --nodes=1
-#SBATCH --array=0-100
+##SBATCH --array=0-100
 
 # =====================================
 # Strict mode
 set -euo pipefail
 
+#Total samples: 32 提交方式。根据样本数确定并行任务数
+ #N=32
+ #sbatch --array=0-$((N-1)) msmc/02b_process_vcf.sh
+ #Submitted batch job
+
 # =====================================
 # Load configuration
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/config.sh"
+#SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+#source "${SCRIPT_DIR}/config.sh"
 
+CONFIG_FILE="msmc/config.sh"
+
+if [[ ! -f "$CONFIG_FILE" ]]; then
+    echo "ERROR: config.sh not found: $CONFIG_FILE"
+    exit 1
+fi
+
+source "$CONFIG_FILE"
+
+log "Configuration loaded"
 # =====================================
 # Get array task ID
 if [[ -n "${SLURM_ARRAY_TASK_ID:-}" ]]; then
@@ -46,48 +61,56 @@ process_vcf_to_msmc() {
     local sample_id="$1"
     local pop_name="$2"
     local chr="$3"
-    
+
     # Input: single-sample VCF (all sites, from Step 2)
     local input_vcf="${SINGLE_VCF_DIR}/${pop_name}_${sample_id}_chr${chr}.vcf.gz"
-    
+
     # Output 1: variant-only VCF
     local variant_vcf="${SINGLE_VCF_DIR}/${pop_name}_${sample_id}_chr${chr}.variant.vcf.gz"
-    
+
     # Output 2: per-sample mask
     local sample_mask="${SINGLE_VCF_DIR}/${pop_name}_${sample_id}_chr${chr}.mask.bed.gz"
-    
+
     # Check if already exists
     if [[ "${RESUME_MODE}" -eq 1 && -f "${variant_vcf}" && -f "${sample_mask}" ]]; then
         log "Processed VCF for ${sample_id} chr${chr} already exists, skipping..."
         return 0
     fi
-    
+
     # Check input exists
     if [[ ! -f "$input_vcf" ]]; then
         log "ERROR: Input VCF not found: ${input_vcf}"
         return 1
     fi
-    
+
     # Get vcfAllSiteParser script
     local vcf_parser="${MSMC_TOOLS_DIR}/vcfAllSiteParser.py"
     if [[ ! -f "$vcf_parser" ]]; then
         vcf_parser="${SCRIPT_DIR}/guide_from_github/vcfAllSiteParser_AllowMultiallelic.py"
     fi
-    
+
     if [[ ! -f "$vcf_parser" ]]; then
         log "ERROR: vcfAllSiteParser.py not found"
         return 1
     fi
-    
+
     # Process: cat VCF | vcfAllSiteParser.py > variant.vcf
     # 同时生成 mask 文件
-    ${BCFTOOLS} view -r "${chr}" "${input_vcf}" 2>/dev/null | \
-    ${PYTHON3} "${vcf_parser}" "${chr}" "${sample_mask}" 2>/dev/null | \
-    ${BCFTOOLS} view -Oz -o "${variant_vcf}" 2>/dev/null
-    
+#    ${BCFTOOLS} view -r "${chr}" "${input_vcf}" 2>/dev/null | \
+#    ${PYTHON3} "${vcf_parser}" "${chr}" "${sample_mask}" 2>/dev/null | \
+#    ${BCFTOOLS} view -Oz -o "${variant_vcf}" 2>/dev/null
+
+    # 删除 -r chr
+          #使用 -Ou
+          #减少 IO
+    # 不需要额外对mask文件进行bgzip，因为原脚本解决了这个问题。
+    ${BCFTOOLS} view -Ou "${input_vcf}" | \
+    ${PYTHON3} "${vcf_parser}" "${chr}" "${sample_mask}" | \
+    ${BCFTOOLS} view -Oz -o "${variant_vcf}"
+
     if [[ $? -eq 0 && -f "${variant_vcf}" && -f "${sample_mask}" ]]; then
         # Index the variant VCF
-        ${TABIX} -p vcf "${variant_vcf}" 2>/dev/null || true
+        ${TABIX} -p -f vcf "${variant_vcf}" 2>/dev/null || true
         log "Processed VCF for ${sample_id} chr${chr}"
         return 0
     else
@@ -104,19 +127,19 @@ process_vcf_simple() {
     local sample_id="$1"
     local pop_name="$2"
     local chr="$3"
-    
+
     local input_vcf="${SINGLE_VCF_DIR}/${pop_name}_${sample_id}_chr${chr}.vcf.gz"
     local variant_vcf="${SINGLE_VCF_DIR}/${pop_name}_${sample_id}_chr${chr}.variant.vcf.gz"
-    
+
     if [[ ! -f "$input_vcf" ]]; then
         return 1
     fi
-    
+
     # 直接提取变异位点 (只保留有ALT等位基因的位点)
     ${BCFTOOLS} view -r "${chr}" -V indels "${input_vcf}" -Oz -o "${variant_vcf}" 2>/dev/null
-    
+
     if [[ $? -eq 0 && -f "${variant_vcf}" ]]; then
-        ${TABIX} -p vcf "${variant_vcf}" 2>/dev/null || true
+        ${TABIX} -p -f vcf "${variant_vcf}" 2>/dev/null || true
         log "Extracted variants for ${sample_id} chr${chr}"
         return 0
     fi
@@ -156,9 +179,9 @@ for ((i=START_IDX; i<START_IDX+BATCH_SIZE && i<${#ALL_SAMPLES[@]}; i++)); do
     sample_pop="${ALL_SAMPLES[$i]}"
     sample_id="${sample_pop%%:*}"
     pop_name="${sample_pop##*:}"
-    
+
     log "Processing sample: ${sample_id} (${pop_name})"
-    
+
     for chr in ${CHROMOSOMES}; do
         # Try vcfAllSiteParser first, fallback to simple method
         process_vcf_to_msmc "${sample_id}" "${pop_name}" "${chr}" || \
@@ -174,8 +197,10 @@ log "=========================================="
 log "VCF Processing Complete"
 log "=========================================="
 
-n_variant=$(ls -1 "${SINGLE_VCF_DIR}"/*.variant.vcf.gz 2>/dev/null | wc -l)
-n_mask=$(ls -1 "${SINGLE_VCF_DIR}"/*.mask.bed.gz 2>/dev/null | wc -l)
+#n_variant=$(ls -1 "${SINGLE_VCF_DIR}"/*.variant.vcf.gz 2>/dev/null | wc -l)
+#n_mask=$(ls -1 "${SINGLE_VCF_DIR}"/*.mask.bed.gz 2>/dev/null | wc -l)
+n_variant=$(find "${SINGLE_VCF_DIR}" -name "*.variant.vcf.gz" | wc -l)
+n_mask=$(find "${SINGLE_VCF_DIR}" -name "*.mask.bed.gz" | wc -l)
 log "Variant VCF files: ${n_variant}"
 log "Mask files: ${n_mask}"
 
