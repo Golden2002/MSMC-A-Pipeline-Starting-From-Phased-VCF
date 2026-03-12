@@ -22,8 +22,12 @@ set -euo pipefail
 
 # =====================================
 # Load configuration
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/config.sh"
+#CONFIG_FILE="${SLURM_SUBMIT_DIR}/config.sh" # 不要依赖脚本目录，而是使用 SLURM 提交目录变量。这样便于脚本移植
+CONFIG_FILE=path/to/config.sh # 或使用绝对路径
+if [[ ! -f "$CONFIG_FILE" ]]; then
+    echo "ERROR: config.sh not found: $CONFIG_FILE"
+    exit 1
+fi
 
 # =====================================
 # Function: Randomly select samples for a population
@@ -36,7 +40,7 @@ select_samples_for_pop() {
     
     # Get all samples for this population
     # Sample info format: SampleID\tPopulation\tRegion\tSubRegion
-    local pop_samples=$(awk -F'\t' -v pop="$pop_name" 'NR>0 && $2==pop {print $1}' "${SAMPLE_INFO}" | sort -u)
+    local pop_samples=$(awk -F'\t' -v pop="$pop_name" 'NR>1 && $2==pop {print $1}' "${SAMPLE_INFO}" | sort -u)
     
     if [[ -z "$pop_samples" ]]; then
         log "WARNING: No samples found for population: $pop_name"
@@ -54,7 +58,7 @@ select_samples_for_pop() {
     
     # Random selection using shuf
     # Use the provided seed for reproducibility
-    local selected=$(echo "$pop_samples" | shuf -n $n_samples -r -S $seed)
+    local selected=$(echo "$pop_samples" | shuf --random-source=<(yes $seed) -n "$n_samples")
     
     # Write to output file
     echo "$selected" > "$output_file"
