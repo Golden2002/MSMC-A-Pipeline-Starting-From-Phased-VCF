@@ -139,6 +139,7 @@ VCFTOOLS="vcftools"
 BGZIP="bgzip"
 TABIX="tabix"
 PYTHON3="python3"
+PYTHON2="python2"
 
 # =====================================
 # 7. Pipeline Control
