@@ -12,13 +12,9 @@
 
 ### 分析人群
 
-- **目标人群**: Jino (基诺族)
-- **藏族相关**: Tibetan, Qiang, Sherpa
-- **基诺相关**: Hani, Lahu
-- **云南北部少数民族**: Pumi, Mosuo, Naxi
-- **南亚语系**: Blang, Wa, De'ang
-- **壮侗语族**: Dai, Zhuang, Dong, Buyei
+- **目标人群**: French (法国人)
 - **参考人群**: Han (汉族)
+- ……
 
 ### 分析内容
 
@@ -118,7 +114,7 @@ python3 plot_msmc_cross.py
 # =====================================
 # 1.1 项目路径配置
 # =====================================
-PROJECT_ROOT="/share/home/litianxing/100My_Jino"
+PROJECT_ROOT="/share/home/user/project"
 MSMC_ROOT="${PROJECT_ROOT}/116.MSMC"
 WORK_DIR="${MSMC_ROOT}/true_msmc"
 
@@ -126,13 +122,13 @@ WORK_DIR="${MSMC_ROOT}/true_msmc"
 # 1.2 输入数据配置
 # =====================================
 # 已Phased的多样本VCF文件
-PHASED_VCF="${PROJECT_ROOT}/107.IBD/data/NGS.phased.vcf.gz"
+PHASED_VCF="${PROJECT_ROOT}/data"
 
 # 样本信息文件 (格式: SampleID\tPopulation\tRegion\tSubRegion)
-SAMPLE_INFO="${PROJECT_ROOT}/101DataPanel/101.5Info/modified_PanAsian_info2.txt"
+SAMPLE_INFO="${PROJECT_ROOT}/Info/info.txt"
 
 # Mappability mask (按染色体命名: chr1.bed.gz, chr2.bed.gz...)
-MAP_MASK="${PROJECT_ROOT}/116.MSMC/mappability_mask/chr"
+MAP_MASK="${PROJECT_ROOT}/001.MSMC/mappability_mask/chr"
 
 # =====================================
 # 1.3 分析参数
@@ -184,14 +180,13 @@ MSMC_TIME_INTERVALS="0.1*15+0.2*10+0.5*5+1*5+2*5"
 
 ```bash
 # 在 config.sh 中定义
-ALL_POPS="Jino,Tibetan,Qiang,Sherpa,Hani,Lahu,Pumi,Mosuo,Naxi,Wa,Deang,Dai,Zhuang,Dong,Buyei,Han"
+ALL_POPS="Yoruba,French,Han"
 
 # 跨群体分析配对
 CROSS_PAIRS=(
-    "Jino:Tibetan"
-    "Jino:Han"
-    "Jino:Dai"
-    "Tibetan:Han"
+    "French:Yoruba"
+    "French:Han"
+    "Han:Yoruba"
 )
 ```
 
@@ -220,36 +215,23 @@ RUN_VISUALIZATION=1
 
 ```
 sample_lists/
-├── Jino.txt
-├── Tibetan.txt
+├── Yoruba.txt
+├── French.txt
 ├── Han.txt
-├── Dai.txt
-├── Hani.txt
-├── Lahu.txt
-├── Pumi.txt
-├── Mosuo.txt
-├── Naxi.txt
-├── Wa.txt
-├── Deang.txt
-├── Zhuang.txt
-├── Dong.txt
-├── Buyei.txt
-├── Qiang.txt
-├── Sherpa.txt
 └── all_samples.txt
 ```
 
-**Jino.txt 示例**:
+**Han.txt 示例**:
 ```
-AAGC032011D
-AAGC032297D
+A0001
+A0002
 ```
 
 **all_samples.txt 示例**:
 ```
-AAGC032011D	Jino
-AAGC032297D	Jino
-AAGC022051D	Tibetan
+A0001 Han
+A0002 Han
+B0001 Yoruba
 ...
 ```
 
@@ -261,15 +243,15 @@ AAGC022051D	Tibetan
 
 ```
 single_vcf/
-├── Jino_AAGC032011D_chr1.vcf.gz
-├── Jino_AAGC032011D_chr1.vcf.gz.tbi
-├── Jino_AAGC032011D_chr2.vcf.gz
-├── Jino_AAGC032011D_chr2.vcf.gz.tbi
+├── Han_A0001_chr1.vcf.gz
+├── Han_A0002_chr1.vcf.gz.tbi
+├── Han_A0003_chr2.vcf.gz
+├── Han_A0004_chr2.vcf.gz.tbi
 ...
-├── Jino_AAGC032011D_chr22.vcf.gz
-├── Jino_AAGC032297D_chr1.vcf.gz
+├── Han_A0009_chr22.vcf.gz
+├── Han_A0010_chr1.vcf.gz
 ...
-└── Tibetan_AAGC022051D_chr1.vcf.gz
+└── French_B0001_chr1.vcf.gz
 ```
 
 **文件说明**:
@@ -285,10 +267,10 @@ single_vcf/
 
 ```
 single_vcf/
-├── Jino_AAGC032011D_chr1.vcf.gz              # 原始 (Step 2)
-├── Jino_AAGC032011D_chr1.variant.vcf.gz      # 处理后: 仅变异位点
-├── Jino_AAGC032011D_chr1.mask.bed.gz        # 处理后: callable regions mask
-├── Jino_AAGC032011D_chr1.variant.vcf.gz.tbi
+├── Han_A0001_chr1.vcf.gz              # 原始 (Step 2)
+├── Han_A0001_chr1.variant.vcf.gz      # 处理后: 仅变异位点
+├── Han_A0001_chr1.mask.bed.gz        # 处理后: callable regions mask
+├── Han_A0001_chr1.variant.vcf.gz.tbi
 ...
 ```
 
@@ -307,16 +289,16 @@ single_vcf/
 
 ```
 msmc_input/
-├── Jino_chr1.msmc
-├── Jino_chr2.msmc
-...
-├── Jino_chr22.msmc
-├── Tibetan_chr1.msmc
-├── Tibetan_chr2.msmc
-...
 ├── Han_chr1.msmc
+├── Han_chr2.msmc
 ...
-└── Dai_chr1.msmc
+├── Han_chr22.msmc
+├── French_chr1.msmc
+├── French_chr2.msmc
+...
+├── Yoruba_chr1.msmc
+...
+└── XXX_chr1.msmc
 ```
 
 **MSMC输入文件格式** (4列tab分隔):
@@ -336,13 +318,13 @@ msmc_input/
 
 ```
 msmc_output/
-├── Jino_chr1.msmc2
-├── Jino_chr1.msmc2.log
-├── Jino_chr2.msmc2
-├── Jino_chr2.msmc2.log
+├── Han_chr1.msmc2
+├── Han_chr1.msmc2.log
+├── Han_chr2.msmc2
+├── Han_chr2.msmc2.log
 ...
-├── Jino_final.msmc2              # 合并后的最终结果
-├── Tibetan_chr1.msmc2
+├── Han_final.msmc2              # 合并后的最终结果
+├── Yoruba_chr1.msmc2
 ...
 └── Han_chr1.msmc2
 ```
@@ -373,13 +355,13 @@ time_index	left_time_boundary	right_time_boundary	lambda_00
 
 ```
 msmc_output/
-├── cross_Jino_Tibetan_chr1.msmc2
-├── cross_Jino_Tibetan_chr2.msmc2
+├── cross_Han_Yoruba_chr1.msmc2
+├── cross_Han_Yoruba_chr2.msmc2
 ...
-├── cross_Jino_Han_chr1.msmc2
-├── cross_Jino_Dai_chr1.msmc2
+├── cross_Han_Han_chr1.msmc2
+├── cross_Han_French_chr1.msmc2
 ...
-└── cross_Tibetan_Han_chr1.msmc2
+└── cross_Yoruba_Han_chr1.msmc2
 ```
 
 **跨群体输出格式** (包含lambda_00, lambda_01, lambda_11):
@@ -510,8 +492,9 @@ true_msmc/
 
 ---
 
-## 参考
+## ⭐参考
 
 - MSMC GitHub: https://github.com/stschiff/msmc
 - MSMC-tools: https://github.com/stschiff/msmc-tools
+- Genome Analysis Workshop：https://compvar-workshop.readthedocs.io/en/latest/index.html
 - 原始论文: Schiffels & Durbin (2014), Nature
