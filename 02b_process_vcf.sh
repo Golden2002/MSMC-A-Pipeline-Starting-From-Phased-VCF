@@ -86,7 +86,8 @@ process_vcf_to_msmc() {
     # Get vcfAllSiteParser script
     local vcf_parser="${MSMC_TOOLS_DIR}/vcfAllSiteParser.py"
     if [[ ! -f "$vcf_parser" ]]; then
-        vcf_parser="${SCRIPT_DIR}/guide_from_github/vcfAllSiteParser_AllowMultiallelic.py"
+        # vcf_parser="${SCRIPT_DIR}/guide_from_github/vcfAllSiteParser_AllowMultiallelic.py"
+        vcf_parser="guide_from_github/vcfAllSiteParser_AllowMultiallelic.py"
     fi
 
     if [[ ! -f "$vcf_parser" ]]; then
@@ -105,7 +106,7 @@ process_vcf_to_msmc() {
           #减少 IO
     # 不需要额外对mask文件进行bgzip，因为原脚本解决了这个问题。
     ${BCFTOOLS} view -Ou "${input_vcf}" | \
-    ${PYTHON3} "${vcf_parser}" "${chr}" "${sample_mask}" | \
+    ${PYTHON2} "${vcf_parser}" "${chr}" "${sample_mask}" | \
     ${BCFTOOLS} view -Oz -o "${variant_vcf}"
 
     if [[ $? -eq 0 && -f "${variant_vcf}" && -f "${sample_mask}" ]]; then
