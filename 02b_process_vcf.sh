@@ -9,8 +9,8 @@
 # =====================================
 
 #SBATCH --job-name=MSMC_ProcessVCF
-#SBATCH --output=/home/litianxing/100My_Jino/116.MSMC/true_msmc/logs/%x_%A_%a.log
-#SBATCH --error=/home/litianxing/100My_Jino/116.MSMC/true_msmc/logs/%x_err_%A_%a.log
+#SBATCH --output=/home/msmc/logs/%x_%A_%a.log
+#SBATCH --error=/home/msmc/logs/%x_err_%A_%a.log
 #SBATCH --ntasks=1
 #SBATCH --partition=batch
 #SBATCH --mem=16G
@@ -24,14 +24,14 @@ set -euo pipefail
 
 #Total samples: 32 提交方式。根据样本数确定并行任务数
  #N=32
- #sbatch --array=0-$((N-1)) /home/litianxing/100My_Jino/116.MSMC/true_msmc/02b_process_vcf.sh
+ #sbatch --array=0-$((N-1)) /msmc/02b_process_vcf.sh
  #Submitted batch job
 
 # =====================================
 # Load configuration
 #SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #source "${SCRIPT_DIR}/config.sh"
-CONFIG_FILE="/home/litianxing/100My_Jino/116.MSMC/true_msmc/config.sh"
+CONFIG_FILE="/home/msmc/config.sh"
 
 if [[ ! -f "$CONFIG_FILE" ]]; then
     echo "ERROR: config.sh not found: $CONFIG_FILE"
