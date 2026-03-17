@@ -9,8 +9,8 @@
 # =====================================
 
 #SBATCH --job-name=MSMC_GenInput
-#SBATCH --output=/PATH/TO/logs/%x_%A_%a.log
-#SBATCH --error=/PATH/TO/logs/%x_err_%A_%a.log
+#SBATCH --output=/home/msmc/logs/%x_%A_%a.log
+#SBATCH --error=/home/msmc/logs/%x_err_%A_%a.log
 #SBATCH --ntasks=1
 #SBATCH --partition=batch
 #SBATCH --mem=16G
@@ -23,9 +23,18 @@ set -euo pipefail
 
 # =====================================
 # Load configuration
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/config.sh"
+#SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+#source "${SCRIPT_DIR}/config.sh"
+CONFIG_FILE="/home/msmc/config.sh"
 
+if [[ ! -f "$CONFIG_FILE" ]]; then
+    echo "ERROR: config.sh not found: $CONFIG_FILE"
+    exit 1
+fi
+
+source "$CONFIG_FILE"
+
+log "Configuration loaded"
 # =====================================
 # Function: Generate MSMC input for one population
 # =====================================
@@ -33,15 +42,15 @@ generate_msmc_input() {
     local pop_name="$1"
     local sample_list="$2"
     local chr="$3"
-    
+
     local output_file="${MSMC_INPUT_DIR}/${pop_name}_chr${chr}.msmc"
-    
+
     # Check if already exists
     if [[ "${RESUME_MODE}" -eq 1 && -f "${output_file}" ]]; then
         log "MSMC input for ${pop_name} chr${chr} already exists, skipping..."
         return 0
     fi
-    
+
     # Collect all VCF files for this population and chromosome
     local vcf_files=()
     while IFS= read -r sample; do
@@ -52,24 +61,24 @@ generate_msmc_input() {
             log "WARNING: VCF file not found: ${vcf_file}"
         fi
     done < "$sample_list"
-    
+
     # Check if we have at least 2 samples
     if [[ ${#vcf_files[@]} -lt 2 ]]; then
         log "ERROR: Not enough VCF files for ${pop_name} chr${chr} (found ${#vcf_files[@]})"
         return 1
     fi
-    
+
     # =====================================
     # 正确的调用方式 (根据README):
     # generate_multihetsep.py --mask sample1_mask --mask sample2_mask --mask mappability \
     #                           sample1.vcf.gz sample2.vcf.gz > output.msmc
-    # 
+    #
     # 注意: 需要使用处理后的variant-only VCF和per-sample mask
     # =====================================
-    
+
     # Build command
     local cmd="${PYTHON3} ${GENERATE_MULTIHETSEP}"
-    
+
     # Add per-sample masks (每个样本的mask)
     while IFS= read -r sample; do
         sample_mask="${SINGLE_VCF_DIR}/${pop_name}_${sample}_chr${chr}.mask.bed.gz"
@@ -77,7 +86,7 @@ generate_msmc_input() {
             cmd="${cmd} --mask ${sample_mask}"
         fi
     done < "$sample_list"
-    
+
     # Add mappability mask (按染色体)
     if [[ -f "${MAP_MASK}" ]]; then
         # 检查是否为染色体特异性
@@ -88,7 +97,7 @@ generate_msmc_input() {
             cmd="${cmd} --mask ${MAP_MASK%.bed}.chr${chr}.bed.gz"
         fi
     fi
-    
+
     # Add variant-only VCF files (从Step 2b处理后的)
     while IFS= read -r sample; do
         variant_vcf="${SINGLE_VCF_DIR}/${pop_name}_${sample}_chr${chr}.variant.vcf.gz"
@@ -96,11 +105,12 @@ generate_msmc_input() {
             cmd="${cmd} ${variant_vcf}"
         fi
     done < "$sample_list"
-    
+
     # Output to stdout, redirect to file
     log "Running: ${cmd} > ${output_file}"
-    eval "${cmd}" > "${output_file}" 2>&1
-    
+#    eval "${cmd}" > "${output_file}" 2>&1
+    eval "${cmd}" > "${output_file}" 2>> ${LOG_DIR}/multihetsep.log
+
     if [[ $? -eq 0 && -s "${output_file}" ]]; then
         log "Generated MSMC input for ${pop_name} chr${chr} with ${#vcf_files[@]} samples"
         return 0
@@ -132,11 +142,16 @@ for pop_file in "${SAMPLE_LIST_DIR}"/*.txt; do
     if [[ -f "${pop_file}" && "$(basename ${pop_file})" != "all_samples.txt" ]]; then
         pop_name=$(basename "${pop_file}" .txt)
         sample_list="${pop_file}"
-        
+
         log "Processing population: ${pop_name}"
-        
+
         # Process each chromosome
-            generate_msmc_input "${pop_name}" "${sample_list}" "${chr}"
+#            generate_msmc_input "${pop_name}" "${sample_list}" "${chr}"
+            log "Processing population: ${pop_name}"
+
+            for chr in ${CHROMOSOMES}; do
+              generate_msmc_input "${pop_name}" "${sample_list}" "${chr}" # 这里不能写chr${chr}，因为这里传递的chr在函数中就是后缀
+            done
     fi
 done
 
