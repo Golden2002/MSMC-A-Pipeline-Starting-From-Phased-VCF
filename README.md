@@ -190,3 +190,122 @@ GEN = 30        # Generation time in years
 ## License
 
 MIT License - See LICENSE file
+
+# 📌Appendix：Special Update On Scripts "MSMC Step4"
+
+##  MSMC Step 4: Population and Cross-Coalescence Analysis
+
+This script performs MSMC2 analysis for:
+
+* **Within-population effective population size (Ne) estimation**
+* **Cross-population coalescence rate estimation**
+
+---
+
+## ⚙️ Requirements
+
+* `msmc2` installed and available in `$PATH`
+* Precomputed MSMC input files (`*.msmc`)
+* (Optional) `combineCrossCoal.py` for downstream analysis
+
+---
+
+## 📂 Input Structure
+
+```
+msmc_input/
+  ├── combo_chr1.msmc
+  ├── combo_chr2.msmc
+  └── ...
+```
+
+Each file must contain haplotypes ordered as:
+
+```
+[Population1 individuals][Population2 individuals]...
+```
+
+Each individual contributes **2 haplotypes**.
+
+---
+
+## Configuration
+
+Edit the script:
+
+```bash
+WORK_DIR=/your/project
+CHROMOSOMES="1 2 3"
+TIME_PATTERN="1*2+15*1+1*2"
+```
+
+---
+
+## Define Population Combinations
+
+```bash
+COMBOS=(
+  "Test:PopA:2,PopB:2"
+)
+```
+
+Format:
+
+```
+combo_name:population1:n_samples,population2:n_samples
+```
+
+---
+
+## Run Modes
+
+```bash
+RUN_MODE="single"   # only Ne
+RUN_MODE="cross"    # only cross-population
+RUN_MODE="full"     # both
+```
+
+---
+
+## Cross-population Settings
+
+```bash
+CROSS_N_INDIV=1
+```
+
+Controls how many individuals per population are used:
+
+* `1` → recommended (stable, MSMC standard)
+* `2+` → more data, higher variance
+
+---
+
+## ▶️ Run
+
+```bash
+sbatch step4_msmc.sh
+```
+
+---
+
+## ⚠️ Important Notes
+
+1. Haplotype order must match population definition
+2. Cross-population analysis is sensitive to phasing errors
+3. Use `-s` (enabled by default) to skip ambiguous sites
+
+---
+
+## Output
+
+```
+msmc_output/
+  ├── combo_pop.final.txt
+  ├── combo_pop1_pop2.final.txt
+```
+
+These can be used to compute:
+
+* Effective population size (Ne)
+* Cross-coalescence rate (CCR)
+
